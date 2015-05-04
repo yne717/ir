@@ -9,6 +9,7 @@
 #define PRODUCT_ID 0x0039
 #define BTO_EP_IN  0x81
 #define BTO_EP_OUT 0x01
+#define IR_FREQ 38000
 
 #define MAX_SIZE 64
 #define IR_DATA_SIZE     7
@@ -291,16 +292,33 @@ int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_d
         exit(1);
       }
 
-      memset(buf, 0x00, MAX_SIZE);
-      r = libusb_interrupt_transfer(devh, BTO_EP_IN, buf, sizeof(buf), &size, 1000);
-      if (r < 0) {
-        fprintf(stderr, "[in] libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
-        exit(1);
-      }
+      //memset(buf, 0x00, MAX_SIZE);
+      //r = libusb_interrupt_transfer(devh, BTO_EP_IN, buf, sizeof(buf), &size, 1000);
+      //if (r < 0) {
+      //  fprintf(stderr, "[in] libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
+      //  exit(1);
+      //}
     } else {
       break;
     }
   }
+
+  sleep(2);
+
+  buf[0] = 0;
+  buf[1] = 0x35;
+  buf[2] = (unsigned char)((IR_FREQ >> 8) & 0xFF);
+  buf[3] = (unsigned char)(IR_FREQ        & 0xFF);
+  buf[4] = (unsigned char)((send_bit_num >> 8) & 0xFF);
+  buf[5] = (unsigned char)(send_bit_num        & 0xFF);
+  
+  int size = 0;
+  int r = libusb_interrupt_transfer(devh, BTO_EP_OUT, buf, sizeof(buf) ,&size, 1000);
+  if (r < 0) {
+    fprintf(stderr, "[out] libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
+    exit(1);
+  }
+
 
   return error_flag;
 }
