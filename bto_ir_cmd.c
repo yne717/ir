@@ -258,12 +258,12 @@ int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_d
 
   while (1) {
     memset(buf, 0xff, MAX_SIZE);
-    buf[0] = 0;
-    buf[1] = 0x34;
-    buf[2] = (unsigned char)((send_bit_num >> 8) & 0xFF);
-    buf[3] = (unsigned char)(send_bit_num        & 0xFF);
-    buf[4] = (unsigned char)((send_bit_pos >> 8) & 0xFF);
-    buf[5] = (unsigned char)(send_bit_pos        & 0xFF);
+    //buf[0] = 0;
+    buf[0] = 0x34;
+    buf[1] = (unsigned char)((send_bit_num >> 8) & 0xFF);
+    buf[2] = (unsigned char)(send_bit_num        & 0xFF);
+    buf[3] = (unsigned char)((send_bit_pos >> 8) & 0xFF);
+    buf[4] = (unsigned char)(send_bit_pos        & 0xFF);
 
     if (send_bit_num > send_bit_pos) {
       set_bit_size = send_bit_num - send_bit_pos;
@@ -273,17 +273,26 @@ int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_d
     } else {
       set_bit_size = 0;
     }
-    buf[6] = (unsigned char)(set_bit_size & 0xFF);
+    buf[5] = (unsigned char)(set_bit_size & 0xFF);
 
     if (set_bit_size > 0) {
       unsigned int fi = 0;
       for (fi = 0; fi < set_bit_size; fi++) {
-        buf[7 + (fi * 4)]     = ir_data[send_bit_pos * 4];
-        buf[7 + (fi * 4) + 1] = ir_data[(send_bit_pos * 4) + 1];
-        buf[7 + (fi * 4) + 2] = ir_data[(send_bit_pos * 4) + 2];
-        buf[7 + (fi * 4) + 3] = ir_data[(send_bit_pos * 4) + 3];
+        buf[6 + (fi * 4)]     = ir_data[send_bit_pos * 4];
+        buf[6 + (fi * 4) + 1] = ir_data[(send_bit_pos * 4) + 1];
+        buf[6 + (fi * 4) + 2] = ir_data[(send_bit_pos * 4) + 2];
+        buf[6 + (fi * 4) + 3] = ir_data[(send_bit_pos * 4) + 3];
         send_bit_pos++;
       }
+
+
+      int len = sizeof(buf);
+      int i = 0;
+      for (i=0; i<len; i++) {
+        printf("%02X", buf[i]);
+      }
+      printf("\n");
+
 
       int size = 0;
       int r = libusb_interrupt_transfer(devh, BTO_EP_OUT, buf, sizeof(buf) ,&size, 1000);
@@ -305,12 +314,20 @@ int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_d
 
   sleep(2);
 
-  buf[0] = 0;
-  buf[1] = 0x35;
-  buf[2] = (unsigned char)((IR_FREQ >> 8) & 0xFF);
-  buf[3] = (unsigned char)(IR_FREQ        & 0xFF);
-  buf[4] = (unsigned char)((send_bit_num >> 8) & 0xFF);
-  buf[5] = (unsigned char)(send_bit_num        & 0xFF);
+  //buf[0] = 0;
+  buf[0] = 0x35;
+  buf[1] = (unsigned char)((IR_FREQ >> 8) & 0xFF);
+  buf[2] = (unsigned char)(IR_FREQ        & 0xFF);
+  buf[3] = (unsigned char)((send_bit_num >> 8) & 0xFF);
+  buf[4] = (unsigned char)(send_bit_num        & 0xFF);
+
+  int i = 0;
+  int len = sizeof(buf);
+  for (i=0; i<len; i++) {
+    printf("%02X", buf[i]);
+  }
+  printf("\n");
+ 
   
   int size = 0;
   int r = libusb_interrupt_transfer(devh, BTO_EP_OUT, buf, sizeof(buf) ,&size, 1000);
@@ -461,11 +478,11 @@ int main(int argc, char *argv[]) {
       unsigned char ir_codes[4096];
       memset(ir_codes, 0x00, sizeof(ir_codes));
       ir_data_size = create_ir_code(karaoke_num, ir_codes, sizeof(ir_codes));
-      printf("  Karaoke code: %d -> ", karaoke_num);
-      for (i = 0; i < ir_data_size; i++) {
-        printf("%02X", ir_codes[i]);
-      }
-      printf("\n");
+      //printf("  Karaoke code: %d -> ", karaoke_num);
+      //for (i = 0; i < ir_data_size; i++) {
+      //  printf("%02X", ir_codes[i]);
+      //}
+      //printf("\n");
       transfer_ir_codes(devh, ir_codes, ir_data_size);
     }
      else if (transfer_mode == 1) {
