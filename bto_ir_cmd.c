@@ -11,6 +11,8 @@
 #define BTO_EP_OUT 0x01
 #define IR_FREQ 38000
 
+#define INTERFACE_NUMBER 0
+
 #define MAX_SIZE 64
 #define IR_DATA_SIZE     7
 #define IR_DATA_SIZE_EX 35
@@ -110,7 +112,6 @@ libusb_device_handle* open_device(libusb_context *ctx) {
     exit(1);
   }
 
-
   /* open device */
   if ((devh = libusb_open_device_with_vid_pid(ctx, VENDOR_ID, PRODUCT_ID)) < 0) {
     perror("can't find device\n");
@@ -119,17 +120,17 @@ libusb_device_handle* open_device(libusb_context *ctx) {
   } 
 
   /* detach kernel driver if attached. */
-  r = libusb_kernel_driver_active(devh, 0);
+  r = libusb_kernel_driver_active(devh, INTERFACE_NUMBER);
   if (r == 1) {
     /* detaching kernel driver */
-    r = libusb_detach_kernel_driver(devh, 0);
+    r = libusb_detach_kernel_driver(devh, INTERFACE_NUMBER);
     if (r != 0) {
       perror("detaching kernel driver failed");
       exit(1);
     }
   }
 
-  r = libusb_claim_interface(devh, 0);
+  r = libusb_claim_interface(devh, INTERFACE_NUMBER);
   if (r < 0) {
     fprintf(stderr, "claim interface failed (%d): %s\n", r, strerror(errno));
     exit(1);
@@ -245,12 +246,9 @@ void transfer_ir(struct libusb_device_handle *devh, char *data, int length, int 
   clear_device_buffer(devh);
 }
 
-int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_data_size) {
+void transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_data_size) {
   unsigned char buf[MAX_SIZE];
-  unsigned int BytesWritten = 0;
-  unsigned int BytesRead = 0;
-
-  int error_flag = 0;
+  int size;
   int send_bit_num = 0;
   int send_bit_pos = 0;
   int set_bit_size = 0;
@@ -258,7 +256,6 @@ int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_d
 
   while (1) {
     memset(buf, 0xff, MAX_SIZE);
-    //buf[0] = 0;
     buf[0] = 0x34;
     buf[1] = (unsigned char)((send_bit_num >> 8) & 0xFF);
     buf[2] = (unsigned char)(send_bit_num        & 0xFF);
@@ -278,66 +275,35 @@ int transfer_ir_codes(struct libusb_device_handle *devh, char *ir_data, int ir_d
     if (set_bit_size > 0) {
       unsigned int fi = 0;
       for (fi = 0; fi < set_bit_size; fi++) {
-        buf[6 + (fi * 4)]     = ir_data[send_bit_pos * 4];
+        buf[6 + (fi * 4)]     = ir_data[send_bit_pos  * 4];
         buf[6 + (fi * 4) + 1] = ir_data[(send_bit_pos * 4) + 1];
         buf[6 + (fi * 4) + 2] = ir_data[(send_bit_pos * 4) + 2];
         buf[6 + (fi * 4) + 3] = ir_data[(send_bit_pos * 4) + 3];
         send_bit_pos++;
       }
 
-
-      int len = sizeof(buf);
-      int i = 0;
-      for (i=0; i<len; i++) {
-        printf("%02X", buf[i]);
-      }
-      printf("\n");
-
-
-      int size = 0;
       int r = libusb_interrupt_transfer(devh, BTO_EP_OUT, buf, sizeof(buf) ,&size, 1000);
       if (r < 0) {
-        fprintf(stderr, "[out] libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
+        fprintf(stderr, "libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
         exit(1);
       }
-
-      //memset(buf, 0x00, MAX_SIZE);
-      //r = libusb_interrupt_transfer(devh, BTO_EP_IN, buf, sizeof(buf), &size, 1000);
-      //if (r < 0) {
-      //  fprintf(stderr, "[in] libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
-      //  exit(1);
-      //}
     } else {
       break;
     }
   }
-
   sleep(2);
 
-  //buf[0] = 0;
   buf[0] = 0x35;
-  buf[1] = (unsigned char)((IR_FREQ >> 8) & 0xFF);
-  buf[2] = (unsigned char)(IR_FREQ        & 0xFF);
+  buf[1] = (unsigned char)((IR_FREQ      >> 8) & 0xFF);
+  buf[2] = (unsigned char)(IR_FREQ             & 0xFF);
   buf[3] = (unsigned char)((send_bit_num >> 8) & 0xFF);
   buf[4] = (unsigned char)(send_bit_num        & 0xFF);
 
-  int i = 0;
-  int len = sizeof(buf);
-  for (i=0; i<len; i++) {
-    printf("%02X", buf[i]);
-  }
-  printf("\n");
- 
-  
-  int size = 0;
   int r = libusb_interrupt_transfer(devh, BTO_EP_OUT, buf, sizeof(buf) ,&size, 1000);
   if (r < 0) {
-    fprintf(stderr, "[out] libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
+    fprintf(stderr, "libusb_interrupt_transfer (%d): %s\n", r, strerror(errno));
     exit(1);
   }
-
-
-  return error_flag;
 }
 
 int create_ir_code(unsigned int code_no, char *buff, int buff_size) {
@@ -445,15 +411,16 @@ int main(int argc, char *argv[]) {
         break;
       case 'r':
         receive_mode = 1;
-        break;
+        fprintf(stderr, "Receive mode not support... m(_ _)m\n");
+        exit(1);
       case 't':
         transfer_mode = 1;
         ir_data = optarg;
         break;
       case 'e':
         extend = 1;
-        printf("Extend mode on.\n");
-        break;
+        fprintf(stderr, "Extend mode not support... m(_ _)m\n");
+        exit(1);
       default:
         usage();
         exit(1);
@@ -473,34 +440,18 @@ int main(int argc, char *argv[]) {
     ir_data_size = get_data_length(extend);
 
     if (karaoke_mode == 1) {
-      printf("Karaoke mode\n");
       int karaoke_num = atoi(ir_data);
       unsigned char ir_codes[4096];
       memset(ir_codes, 0x00, sizeof(ir_codes));
       ir_data_size = create_ir_code(karaoke_num, ir_codes, sizeof(ir_codes));
-      //printf("  Karaoke code: %d -> ", karaoke_num);
-      //for (i = 0; i < ir_data_size; i++) {
-      //  printf("%02X", ir_codes[i]);
-      //}
-      //printf("\n");
+      printf("Karaoke mode\n");
+      printf("  Karaoke code: %d\n", karaoke_num);
       transfer_ir_codes(devh, ir_codes, ir_data_size);
     }
-     else if (transfer_mode == 1) {
+    else if (transfer_mode == 1) {
       printf("Transfer mode\n");
       printf("  Transfer code: %s\n", ir_data);
       transfer_ir(devh, ir_data, ir_data_size, extend);
-    }
-    else if (receive_mode == 1) {
-      printf("Receive mode\n");
-      memset(buf, 0x00, ir_data_size);
-      r = receive_ir(devh, buf, ir_data_size, extend);
-      if (r == 1) {
-        printf("  Received code: ");
-        for (i = 0; i < ir_data_size; i++) {
-          printf("%02X", buf[i]);
-        }
-        printf("\n");
-      }
     }
 
     /* close device */
