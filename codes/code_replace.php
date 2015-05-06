@@ -10,8 +10,24 @@ if (empty($dest_file)) {
 
 $file = file_get_contents($src_file, true);
 
-$pattern = '/       .*?\n(.*?))/';
+$pattern = '/^\s(.*?)\n(.*)/';
+$replacement = '$2';
+$file = preg_replace($pattern, $replacement, $file);
+
+$pattern = '/0.*?:\s(.*)/';
 $replacement = '$1';
+$file = preg_replace($pattern, $replacement, $file);
+
+$pattern = '/\s/';
+$replacement = '';
+$file = preg_replace($pattern, $replacement, $file);
+
+$pattern = '/\n/';
+$replacement = '';
+$file = preg_replace($pattern, $replacement, $file);
+
+$pattern = '/([0-9A-f]{2})/';
+$replacement = '0x$1, ';
 $file = preg_replace($pattern, $replacement, $file);
 
 file_put_contents($dest_file, $file);
